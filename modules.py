@@ -598,7 +598,7 @@ class context_network_2(nn.Module):
         phi_out = phi.view(phi.shape[0], -1)
 
         # feed phi and l to respective fc layers
-        # phi_out = self.fc1(phi_out)
+        phi_out = F.relu(self.fc1(phi_out))
         # phi_out = F.normalize(phi_out, p=2, dim=1)
 
         # print(phi_out)

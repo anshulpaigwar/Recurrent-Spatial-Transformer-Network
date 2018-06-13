@@ -15,8 +15,8 @@ class RecurrentSpatialTransformer(nn.Module):
 
         super(RecurrentSpatialTransformer, self).__init__()
 
-        self.context = context_network(100,512)
-        self.rnn = nn.GRU(512,512,1)
+        self.context = context_network(100,1024)
+        self.rnn = nn.GRU(1024,512,1)
         self.locator = location_network(input_size = 512, hidden_size = 1024)
 
         # Crop the image using differential STN at location and zoom
@@ -27,7 +27,7 @@ class RecurrentSpatialTransformer(nn.Module):
 
 
 
-    def forward(self, x, h0,seq_len):
+    def forward(self, x, x_resized, h0,seq_len):
 
         # in_seq = self.context(x) # (B,512)
         # # print(in_seq[1])
@@ -59,7 +59,8 @@ class RecurrentSpatialTransformer(nn.Module):
 
 
 
-        in_seq = self.context(x) # (B,512)
+        in_seq = self.context_2(x_resized) # (B,512)
+        # in_seq = self.context(x) # (B,512)
         # print(in_seq[1])
 
         in_seq = in_seq.unsqueeze(0) #(1,B,512)

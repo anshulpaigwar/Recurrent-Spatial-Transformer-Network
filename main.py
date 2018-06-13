@@ -21,6 +21,7 @@ import torch.optim as optim
 import torchvision
 from torchvision import datasets, transforms
 from torch.autograd import Variable
+from torchviz import make_dot
 import matplotlib
 # matplotlib.use('Agg')
 import matplotlib.pyplot as plt
@@ -146,9 +147,9 @@ def train_stn(epoch):
 
         optimizer.zero_grad()
 
-        # hidden = torch.rand(1,B,1024).cuda()
-        hidden = model.context_2(data_resized)
-        hidden = hidden.unsqueeze(0)
+        hidden = torch.zeros(1,B,512).cuda()
+        # hidden = model.context_2(data_resized)
+        # hidden = hidden.unsqueeze(0)
         target = target.view(target.size(0)).long()
 
 
@@ -156,10 +157,15 @@ def train_stn(epoch):
         loss = None
         seq_len = 6
 
-        output, glimpse_list, loc_estimate_list = model(data,hidden,seq_len)
+        output, glimpse_list, loc_estimate_list = model(data, data_resized, hidden, seq_len)
         for i in range(seq_len):
             # loss = criterion(output[i], target)
             loss = criterion(output[i],loc_estimate_list[i], target, loc_true)
+
+            # visualise the network:
+            # make_dot(loss, params = dict(model.named_parameters())).view()
+            # pdb.set_trace()
+
             total_loss.append(loss)
         total_loss = torch.stack(total_loss).mean()
 
@@ -225,9 +231,9 @@ def validate_stn():
 
                 optimizer.zero_grad()
 
-                # hidden = torch.rand(1,B,1024).cuda()
-                hidden = model.context_2(data_resized)
-                hidden = hidden.unsqueeze(0)
+                hidden = torch.zeros(1,B,512).cuda()
+                # hidden = model.context_2(data_resized)
+                # hidden = hidden.unsqueeze(0)
                 target = target.view(target.size(0)).long()
 
 
@@ -235,7 +241,7 @@ def validate_stn():
                 loss = None
                 seq_len = 6
 
-                output, glimpse_list, loc_estimate_list = model(data,hidden,seq_len)
+                output, glimpse_list, loc_estimate_list = model(data,data_resized,hidden,seq_len)
 
                 for i in range(seq_len):
                     # loss = criterion(output[i], target)
