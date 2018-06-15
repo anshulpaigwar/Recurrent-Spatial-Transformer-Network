@@ -22,15 +22,13 @@ import torchvision
 from torchvision import datasets, transforms
 from torch.autograd import Variable
 import matplotlib
-# matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 import numpy as np
 from modules import EDRAM_Loss
 from model_stn import RecurrentSpatialTransformer
-# from model_stn import RecurrentSpatialTransformer
-#from data_loader import get_data_loaders
-from data_test import H5Dataset, get_data_loaders
+from tools.data_test import H5Dataset, get_data_loaders
+from tools.utils import save_checkpoint, AverageMeter, accuracy, visualize,visualize_stn
 
 from torchviz import make_dot
 import ipdb as pdb
@@ -316,18 +314,14 @@ def main():
 
 
     for epoch in range(args.epochs):
-
         # adjust_learning_rate(optimizer, epoch)
         train_stn(epoch)
-
         # evaluate on validation set
         prec1 = validate_stn()
-
 
         # if (prec1 < best_prec1):
         #     adjust_learning_rate2(optimizer)
 
-############ # CHANGED: not saving checkpoint
         if args.save_checkpoints:
             # remember best prec@1 and save checkpoint
             is_best = prec1 > best_prec1
@@ -340,232 +334,153 @@ def main():
             }, is_best)
 
 
-
-
-'''
-Save the model for later
-'''
-def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
-    torch.save(state, filename)
-    if is_best:
-        shutil.copyfile(filename, 'model_best.pth.tar')
-
-
-
-class AverageMeter(object):
-    """Computes and stores the average and current value"""
-    def __init__(self):
-        self.reset()
-
-    def reset(self):
-        self.val = 0
-        self.avg = 0
-        self.sum = 0
-        self.count = 0
-
-    def update(self, val, n=1):
-        self.val = val
-        self.sum += val * n
-        self.count += n
-        self.avg = self.sum / self.count
-
-
-
-def adjust_learning_rate(optimizer, epoch):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = args.lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
-
-def adjust_learning_rate2(optimizer):
-    """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
-    lr = float(args.lr) / 4.0
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-
-
-# TODO: Repair the accuracy function
-
-
-def accuracy(output, target,topk=(1,)):
-    """Computes the precision@k for the specified values of k"""
-    target = target.view(target.size(0)).long()
-    with torch.no_grad():
-        maxk = max(topk)
-        batch_size = target.size(0)
-
-        _, pred = output.topk(maxk, 1, True, True)
-        pred = pred.t()
-        correct = pred.eq(target.view(1, -1).expand_as(pred))
-
-        res = []
-        for k in topk:
-            correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
-            res.append(correct_k.mul_(100.0 / batch_size))
-        return res
-
-
-
-
-
-def convert_image_np(inp):
-    """Convert a Tensor to numpy image."""
-    inp = inp.detach().numpy().transpose((1, 2, 0))
-    # mean = np.array([0.485, 0.456, 0.406])
-    # std = np.array([0.229, 0.224, 0.225])
-    # inp = std * inp + mean
-    # inp = np.clip(inp, 0, 1)
-    return inp
-
-
-
-
-
-
-def visualize(data, fig_num, title):
-    input_tensor = data.cpu()
-    input_tensor = torch.squeeze(input_tensor)
-    in_grid = input_tensor.detach().numpy()
-    # in_grid = convert_image_np((input_tensor))
-    # Plot the results side-by-side
-    fig=plt.figure(num = fig_num)
-    plt.imshow(in_grid, cmap='gray', interpolation='none')
-    plt.title(title)
-    # plt.switch_backend('TkAgg')
-    figManager = plt.get_current_fig_manager()
-    figManager.resize(*figManager.window.maxsize())
-    # figManager.window.state('zoomed')
-    plt.show(block=False)
-    # time.sleep(4)
-    # plt.close()
-
-
-
-def visualize_stn(data, title):
-    input_tensor = data.cpu()
-    input_tensor = torch.squeeze(input_tensor)
-    input_tensor = input_tensor.detach().numpy()
-    # print(input_tensor.shape)
-    N = len(input_tensor)
-
-    fig=plt.figure(num = 2)
-    fig=plt.figure(figsize=(8, 8))
-    columns = N
-    rows = 1
-    for i in range(1, columns*rows +1):
-        img = input_tensor[i-1]
-        # img = convert_image_np(input_tensor[i-1])
-        fig.add_subplot(rows, columns, i)
-        plt.imshow(img, cmap='gray', interpolation='none')
-    # plt.switch_backend('TkAgg')
-    figManager = plt.get_current_fig_manager()
-    figManager.resize(*figManager.window.maxsize())
-    # figManager.window.state('zoomed')
-    plt.show(block=False)
-    # time.sleep(4)
-    # plt.close()
-
-
-
-
-
-
-
-
-
-
-
-def cal_accuracy(output, target):
-    target = target.view(target.size(0)).long()
-    with torch.no_grad():
-        batch_size = target.size(0)
-        _, predicted = torch.max(outputs.data, 1)
-        correct = (predicted == target).sum().item()
-        return correct * 100.0 / batch_size
-
-
-
-
-
-
 if __name__ == '__main__':
     main()
 
-# def main(config):
-#
-#     # ensure directories are setup
-#     prepare_dirs(config)
-#
-#     # ensure reproducibility
-#     torch.manual_seed(config.random_seed)
-#     kwargs = {}
-#     if config.use_gpu:
-#         torch.cuda.manual_seed(config.random_seed)
-#         kwargs = {'num_workers': 1, 'pin_memory': True}
-#
-#     # instantiate data loaders
-#     if config.is_train:
-#         data_loader = get_train_valid_loader(
-#             config.data_dir, config.batch_size,
-#             config.random_seed, config.valid_size,
-#             config.shuffle, config.show_sample, **kwargs
-#         )
-#     else:
-#         data_loader = get_test_loader(
-#             config.data_dir, config.batch_size, **kwargs
-#         )
-#
-#     # instantiate trainer
-#     trainer = Trainer(config, data_loader)
-#
-#     # either train
-#     if config.is_train:
-#         save_config(config)
-#         trainer.train()
-#
-#     # or load a pretrained model and test
-#     else:
-#         trainer.test()
+
+
+
+
+# '''
+# Save the model for later
+# '''
+# def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
+#     torch.save(state, filename)
+#     if is_best:
+#         shutil.copyfile(filename, 'model_best.pth.tar')
 #
 #
-
-
-
-
-
-
-
-
-# torch.save(model.state_dict(), filepath)
-
-# #Later to restore:
-# #initialise the model
-# model.load_state_dict(torch.load(filepath))
-# model.eval()
-
-
-
-
-# state = {
-#     'epoch': epoch,
-#     'state_dict': model.state_dict(),
-#     'optimizer': optimizer.state_dict(),
-#     ...
-# }
-# torch.save(state, filepath)
-# model.load_state_dict(state['state_dict'])
-# optimizer.load_state_dict(stata['optimizer'])
-
-
-
-
-
-
-
-
-
 #
-# A simple test procedure to measure STN the performances on MNIST.
+# class AverageMeter(object):
+#     """Computes and stores the average and current value"""
+#     def __init__(self):
+#         self.reset()
+#
+#     def reset(self):
+#         self.val = 0
+#         self.avg = 0
+#         self.sum = 0
+#         self.count = 0
+#
+#     def update(self, val, n=1):
+#         self.val = val
+#         self.sum += val * n
+#         self.count += n
+#         self.avg = self.sum / self.count
+#
+#
+#
+# def adjust_learning_rate(optimizer, epoch):
+#     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+#     lr = args.lr * (0.1 ** (epoch // 30))
+#     for param_group in optimizer.param_groups:
+#         param_group['lr'] = lr
+#
+#
+#
+# def adjust_learning_rate2(optimizer):
+#     """Sets the learning rate to the initial LR decayed by 10 every 30 epochs"""
+#     lr = float(args.lr) / 4.0
+#     for param_group in optimizer.param_groups:
+#         param_group['lr'] = lr
+#
+#
+# # TODO: Repair the accuracy function
+#
+#
+# def accuracy(output, target,topk=(1,)):
+#     """Computes the precision@k for the specified values of k"""
+#     target = target.view(target.size(0)).long()
+#     with torch.no_grad():
+#         maxk = max(topk)
+#         batch_size = target.size(0)
+#
+#         _, pred = output.topk(maxk, 1, True, True)
+#         pred = pred.t()
+#         correct = pred.eq(target.view(1, -1).expand_as(pred))
+#
+#         res = []
+#         for k in topk:
+#             correct_k = correct[:k].view(-1).float().sum(0, keepdim=True)
+#             res.append(correct_k.mul_(100.0 / batch_size))
+#         return res
+#
+#
+#
+#
+#
+# def convert_image_np(inp):
+#     """Convert a Tensor to numpy image."""
+#     inp = inp.detach().numpy().transpose((1, 2, 0))
+#     # mean = np.array([0.485, 0.456, 0.406])
+#     # std = np.array([0.229, 0.224, 0.225])
+#     # inp = std * inp + mean
+#     # inp = np.clip(inp, 0, 1)
+#     return inp
+#
+#
+#
+#
+#
+#
+# def visualize(data, fig_num, title):
+#     input_tensor = data.cpu()
+#     input_tensor = torch.squeeze(input_tensor)
+#     in_grid = input_tensor.detach().numpy()
+#     # in_grid = convert_image_np((input_tensor))
+#     # Plot the results side-by-side
+#     fig=plt.figure(num = fig_num)
+#     plt.imshow(in_grid, cmap='gray', interpolation='none')
+#     plt.title(title)
+#     # plt.switch_backend('TkAgg')
+#     figManager = plt.get_current_fig_manager()
+#     figManager.resize(*figManager.window.maxsize())
+#     # figManager.window.state('zoomed')
+#     plt.show(block=False)
+#     # time.sleep(4)
+#     # plt.close()
+#
+#
+#
+# def visualize_stn(data, title):
+#     input_tensor = data.cpu()
+#     input_tensor = torch.squeeze(input_tensor)
+#     input_tensor = input_tensor.detach().numpy()
+#     # print(input_tensor.shape)
+#     N = len(input_tensor)
+#
+#     fig=plt.figure(num = 2)
+#     fig=plt.figure(figsize=(8, 8))
+#     columns = N
+#     rows = 1
+#     for i in range(1, columns*rows +1):
+#         img = input_tensor[i-1]
+#         # img = convert_image_np(input_tensor[i-1])
+#         fig.add_subplot(rows, columns, i)
+#         plt.imshow(img, cmap='gray', interpolation='none')
+#     # plt.switch_backend('TkAgg')
+#     figManager = plt.get_current_fig_manager()
+#     figManager.resize(*figManager.window.maxsize())
+#     # figManager.window.state('zoomed')
+#     plt.show(block=False)
+#     # time.sleep(4)
+#     # plt.close()
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+#
+# def cal_accuracy(output, target):
+#     target = target.view(target.size(0)).long()
+#     with torch.no_grad():
+#         batch_size = target.size(0)
+#         _, predicted = torch.max(outputs.data, 1)
+#         correct = (predicted == target).sum().item()
+#         return correct * 100.0 / batch_size
 #

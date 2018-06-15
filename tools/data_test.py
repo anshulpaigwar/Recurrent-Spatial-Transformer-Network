@@ -7,7 +7,6 @@ import torch.utils.data as data
 import torch.multiprocessing
 # torch.multiprocessing.set_start_method('spawn')
 from torch.utils.data.sampler import SubsetRandomSampler
-from utils import plot_images
 import matplotlib
 import matplotlib.pyplot as plt
 from skimage.transform import resize
