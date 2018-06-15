@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from modules import EDRAM_Loss
 from model_stn import RecurrentSpatialTransformer
-from tools.data_test import H5Dataset, get_data_loaders
+from tools.mnist_seq_dataset import get_data_loaders
 from tools.utils import save_checkpoint, AverageMeter, accuracy, visualize,visualize_stn
 
 from torchviz import make_dot
@@ -75,45 +75,25 @@ args = parser.parse_args()
 
 
 
-
-
-
-
-
-
-
-# TODO: change the description below
-"""
-Loading the dataset:
-# In this post we experiment with the cluttered MNIST dataset. Using a
-# standard convolutional network augmented with a spatial transformer
-# network.
-# for more info on generating dataset follow the link below:
-# https://github.com/SunnerLi/EDRAM-Tensorflow
-# https://github.com/ablavatski/mnist-cluttered
-
-
-"""
-
-
-data_dir = "/home/anshul/inria_thesis/datasets/mnist-cluttered/mnist_clusttered.hdf5"
-train_loader, valid_loader, test_loader = get_data_loaders(data_dir, show_sample=False)
+data_dir = "/home/anshul/inria_thesis/datasets/mnist_sequence3_sample_8distortions_9x9/"
+train_loader, valid_loader = get_data_loaders(data_dir, batch = args.batchSize, transform = True)
 
 
 model = RecurrentSpatialTransformer() # FIXME input parameters
 if use_cuda:
+    print("using cuda")
     model.cuda()
 
 optimizer = optim.SGD(model.parameters(), lr=0.01)
 # optimizer = optim.Adam(model.parameters(), args.lr)
 
-loss_func_1 = EDRAM_Loss().cuda()
-loss_func_2 = nn.CrossEntropyLoss()
+# loss_func_1 = EDRAM_Loss().cuda()
+criterion = nn.CrossEntropyLoss()
 
 
-def criterion(output,loc_estimate_list, target, loc_true):
-    return loss_func_1(output,loc_estimate_list, target, loc_true)
-    # return loss_func_2(output,target)
+# def criterion(output,loc_estimate_list, target, loc_true):
+#     # return loss_func_1(output,loc_estimate_list, target, loc_true)
+#     return loss_func_2(output,target)
 
 
 
@@ -133,43 +113,44 @@ def train_stn(epoch):
     model.train()
     end = time.time()
 
-    for batch_idx, (data, data_resized, target, loc_true) in enumerate(train_loader):
+    for batch_idx, (data, data_resized, target) in enumerate(train_loader):
 
         # measure data loading time
         data_time.update(time.time() - end)
 
         B = data.shape[0] # Batch size
         if use_cuda:
-            data, data_resized, target, loc_true = data.cuda(),data_resized.cuda(), target.cuda(), loc_true.cuda()
+            data, data_resized, target = data.cuda(),data_resized.cuda(), target.cuda()
+        data, data_resized = data.unsqueeze(1).float(), data_resized.unsqueeze(1).float()
 
         optimizer.zero_grad()
 
         # hidden = torch.rand(1,B,1024).cuda()
         hidden = model.context_2(data_resized)
         hidden = hidden.unsqueeze(0)
-        target = target.view(target.size(0)).long()
+        target = target.long()
 
 
         total_loss = []
         loss = None
-        seq_len = 6
+        seq_len = 3
 
         output, glimpse_list, loc_estimate_list = model(data,hidden,seq_len)
         for i in range(seq_len):
-            # loss = criterion(output[i], target)
-            loss = criterion(output[i],loc_estimate_list[i], target, loc_true)
+            loss = criterion(output[i], target[:,i])
+            # loss = criterion(output[i],loc_estimate_list[i], target, loc_true)
             total_loss.append(loss)
         total_loss = torch.stack(total_loss).mean()
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output[seq_len-1], target, topk=(1, 5))
-        losses.update(loss.item(), B)
+        prec1, prec5 = accuracy(output[seq_len-1], target[:, seq_len-1], topk=(1, 5))
+        losses.update(total_loss.item(), B)
         # losses.update(total_loss.item(), B)
         top1.update(prec1[0], B)
         top5.update(prec5[0], B)
 
         # compute gradient and do SGD step
-        loss.backward()
+        total_loss.backward()
         # total_loss.backward()
         optimizer.step()
 
@@ -215,47 +196,48 @@ def validate_stn():
     with torch.no_grad():
         end = time.time()
 
-        for batch_idx, (data, data_resized, target, loc_true) in enumerate(valid_loader):
+        for batch_idx, (data, data_resized, target) in enumerate(valid_loader):
 
             B = data.shape[0] # Batch size
             if use_cuda:
-                data, data_resized, target, loc_true = data.cuda(),data_resized.cuda(), target.cuda(), loc_true.cuda()
+                data, data_resized, target = data.cuda(),data_resized.cuda(), target.cuda()
+            data, data_resized = data.unsqueeze(1).float(), data_resized.unsqueeze(1).float()
 
-                optimizer.zero_grad()
+            optimizer.zero_grad()
 
-                # hidden = torch.rand(1,B,1024).cuda()
-                hidden = model.context_2(data_resized)
-                hidden = hidden.unsqueeze(0)
-                target = target.view(target.size(0)).long()
-
-
-                total_loss = []
-                loss = None
-                seq_len = 6
-
-                output, glimpse_list, loc_estimate_list = model(data,hidden,seq_len)
-
-                for i in range(seq_len):
-                    # loss = criterion(output[i], target)
-                    loss = criterion(output[i],loc_estimate_list[i], target, loc_true)
-                    total_loss.append(loss)
-                total_loss = torch.stack(total_loss).mean()
-
-                # measure accuracy and record loss
-                prec1, prec5 = accuracy(output[seq_len-1], target, topk=(1, 5))
-                losses.update(loss.item(), B)
-                # losses.update(total_loss.item(), B)
-                top1.update(prec1[0], B)
-                top5.update(prec5[0], B)
-                torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
-                hidden = hidden.detach()
+            # hidden = torch.rand(1,B,1024).cuda()
+            hidden = model.context_2(data_resized)
+            hidden = hidden.unsqueeze(0)
+            target = target.long()
 
 
-                # measure elapsed time
-                batch_time.update(time.time() - end)
-                end = time.time()
+            total_loss = []
+            loss = None
+            seq_len = 3
 
-                # print('where')
+            output, glimpse_list, loc_estimate_list = model(data,hidden,seq_len)
+            for i in range(seq_len):
+                loss = criterion(output[i], target[:,i])
+                # loss = criterion(output[i],loc_estimate_list[i], target, loc_true)
+                total_loss.append(loss)
+            total_loss = torch.stack(total_loss).mean()
+
+            # measure accuracy and record loss
+            prec1, prec5 = accuracy(output[seq_len-1], target[:, seq_len-1], topk=(1, 5))
+            losses.update(total_loss.item(), B)
+            # losses.update(total_loss.item(), B)
+            top1.update(prec1[0], B)
+            top5.update(prec5[0], B)
+
+            torch.nn.utils.clip_grad_norm_(model.parameters(), args.clip)
+            hidden = hidden.detach()
+
+
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+
+            # print('where')
 
             if batch_idx % args.print_freq == 0:
                 print('Test: [{0}/{1}]\t'
@@ -269,8 +251,6 @@ def validate_stn():
             if batch_idx % 1400 == 0:
                 plt.close()
                 print("target", target[1])
-                print ("True Location",loc_true[1])
-                print ("estimated Location",loc_estimate_list[seq_len-1,1])
                 visualize(data[1], 1, "dataset image")
                 # visualize(glimpse_list, 2, "Transformed Images")
 

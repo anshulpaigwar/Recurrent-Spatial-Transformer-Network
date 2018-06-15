@@ -44,7 +44,7 @@ class MnistSeq(Dataset):
             self.train_data = np.load(data_dir + "X_train.npy")
             self.train_data = self.train_data.reshape(-1,100,100)
             self.train_labels = np.load(data_dir + "y_train.npy")
-            # print(len(self.train_data))
+            print("train dataset", len(self.train_data))
             # print(self.train_data.shape)
             # print(len(self.train_labels))
             # print(self.train_labels[2])
@@ -55,6 +55,7 @@ class MnistSeq(Dataset):
             self.valid_data = np.load(data_dir + "X_valid.npy")
             self.valid_data = self.valid_data.reshape(-1,100,100)
             self.valid_labels = np.load(data_dir + "y_valid.npy")
+            print("train dataset", len(self.valid_data))
 
     def __getitem__(self, index):
     	if self.train:
@@ -82,7 +83,7 @@ class MnistSeq(Dataset):
 
 
 
-def get_data_loaders(data_dir, batch = 32,  transform = True, show_sample=True):
+def get_data_loaders(data_dir, batch = 32,  transform = True):
 
     use_cuda = torch.cuda.is_available()
     if use_cuda:
@@ -94,10 +95,10 @@ def get_data_loaders(data_dir, batch = 32,  transform = True, show_sample=True):
         pin_memory = True
 
 
-    train_loader = DataLoader(MnistSeq(data_dir,train = True, transform = True),
+    train_loader = DataLoader(MnistSeq(data_dir,train = True, transform = transform),
                     batch_size= batch, num_workers=num_workers, pin_memory=pin_memory,shuffle=True)
 
-    valid_loader = DataLoader(MnistSeq(data_dir,train = False, transform = False),
+    valid_loader = DataLoader(MnistSeq(data_dir,train = False, transform = transform),
                     batch_size= batch, num_workers=num_workers, pin_memory=pin_memory,shuffle=True)
 
     return train_loader, valid_loader
@@ -116,7 +117,7 @@ if __name__ == '__main__':
 
     train_loader, valid_loader = get_data_loaders(data_dir, batch = 32, transform = True)
     print(len(train_loader))
-    for batch_idx, (data, data_resized, labels) in enumerate(train_loader):
+    for batch_idx, (data, data_resized, labels) in enumerate(valid_loader):
         print(data[0])
         print(data_resized[0])
         print(labels[0])
