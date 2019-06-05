@@ -16,30 +16,6 @@ def _out_size(self, input_size, kernel_size, stride = 1, padding = 0, pool = Fal
     return int(out_size)
 
 
-# class EDRAM_Loss(torch.nn.Module):
-#
-#     def __init__(self):
-#         super(EDRAM_Loss,self).__init__()
-#
-#     def forward(self,log_probas,loc_estimate, target, loc_true):
-#         lossEntropy = nn.CrossEntropyLoss()
-#         lossMSE = nn.MSELoss()
-#         # beta = torch.FloatTensor([[1], [1]])
-#         # beta = Variable(beta.cuda())
-#         loss_where = lossMSE(loc_estimate , loc_true) # dot product output (B,1)
-#         # loss_where = torch.matmul(((loc_estimate - loc_true)**2),beta) # dot product output (B,1)
-#         loss_where = torch.mean(loss_where)
-#         target = target.view(target.size(0))
-#         #print(target.shape)
-#         loss_what = lossEntropy(log_probas, target.long()) #(B,1)
-#         loss_sum = torch.mean(loss_where + loss_what)
-#         # loss_sum = 0.7*loss_where + 0.3*loss_what
-#         # return loss_what
-#         # return loss_where
-#         return loss_sum # TODO: Normalise the loss
-#
-
-
 class EDRAM_Loss(torch.nn.Module):
 
     def __init__(self):
@@ -56,10 +32,6 @@ class EDRAM_Loss(torch.nn.Module):
         loss_sum = torch.mean(loss_where + loss_what) # QUESTION: keepdim true??
         return loss_sum
         # return loss_what
-
-
-
-
 
 
 
@@ -118,42 +90,6 @@ class stn_zoom(nn.Module):
 
 
 class glimpse_network(nn.Module):
-    """
-    A network that combines the "what" and the "where"
-    into a glimpse feature vector `g_t`.
-
-    - "what": glimpse extracted from the retina.
-    - "where": location tuple where glimpse was extracted.
-
-    Concretely, feeds the output of the retina `phi` to
-    a fc layer and the glimpse location vector `l_t_prev`
-    to a fc layer. Finally, these outputs are fed each
-    through a fc layer and their sum is rectified.
-
-    In other words:
-
-        `g_t = relu( fc( fc(l) ) + fc( fc(phi) ) )`
-
-    Args
-    ----
-    - h_g: hidden layer size of the fc layer for `phi`.
-    - h_l: hidden layer size of the fc layer for `l`.
-    - glimpse_size: size of the square patches in the glimpses extracted
-      by the retina.
-    - c: number of channels in each image.
-    - phi: a 4D Tensor of shape (B, H, W, C). The minibatch
-      of images.
-    - l_t_prev: a 2D tensor of shape (B, 2). Contains the glimpse
-      coordinates [x, y] for the previous timestep `t-1`.
-
-    Returns
-    -------
-    - g_t: a 2D tensor of shape (B, hidden_size). The glimpse
-      representation returned by the glimpse network for the
-      current timestep `t`.
-    """
-
-    # TODO:  change all the convolution layer according to the data in paper
 
     def __init__(self, h_g, h_l, c = 1, glimpse_size = 26): #TODO: repair this
         super(glimpse_network, self).__init__()
@@ -243,136 +179,6 @@ class glimpse_network(nn.Module):
         return g_t
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-# class glimpse_network(nn.Module):
-#     """
-#     A network that combines the "what" and the "where"
-#     into a glimpse feature vector `g_t`.
-#
-#     - "what": glimpse extracted from the retina.
-#     - "where": location tuple where glimpse was extracted.
-#
-#     Concretely, feeds the output of the retina `phi` to
-#     a fc layer and the glimpse location vector `l_t_prev`
-#     to a fc layer. Finally, these outputs are fed each
-#     through a fc layer and their sum is rectified.
-#
-#     In other words:
-#
-#         `g_t = relu( fc( fc(l) ) + fc( fc(phi) ) )`
-#
-#     Args
-#     ----
-#     - h_g: hidden layer size of the fc layer for `phi`.
-#     - h_l: hidden layer size of the fc layer for `l`.
-#     - glimpse_size: size of the square patches in the glimpses extracted
-#       by the retina.
-#     - c: number of channels in each image.
-#     - phi: a 4D Tensor of shape (B, H, W, C). The minibatch
-#       of images.
-#     - l_t_prev: a 2D tensor of shape (B, 2). Contains the glimpse
-#       coordinates [x, y] for the previous timestep `t-1`.
-#
-#     Returns
-#     -------
-#     - g_t: a 2D tensor of shape (B, hidden_size). The glimpse
-#       representation returned by the glimpse network for the
-#       current timestep `t`.
-#     """
-#
-#     # TODO:  change all the convolution layer according to the data in paper
-#
-#     def __init__(self, h_g, c = 1, glimpse_size = 26): #TODO: repair this
-#         super(glimpse_network, self).__init__()
-#
-#         self.conv_drop = nn.Dropout2d()
-#
-#         self.conv1 = nn.Conv2d(c, 64, kernel_size=3, padding = 1)
-#         self.conv1_bn = nn.BatchNorm2d(64)
-#
-#         img_size = _out_size(self, glimpse_size, kernel_size=3, padding = 1) #img_size = 26
-#
-#         self.conv2 = nn.Conv2d(64, 64, kernel_size=3) #img_size = 24
-#         self.conv2_bn = nn.BatchNorm2d(64)
-#         self.pool2 = nn.MaxPool2d(kernel_size=2, stride=2, padding = 0)
-#
-#         img_size = _out_size(self, img_size,kernel_size=3, padding = 0, pool = True)  #img_size = 12
-#
-#         self.conv3 = nn.Conv2d(64, 128, kernel_size=3, padding = 1) #img_size = 12
-#         self.conv3_bn = nn.BatchNorm2d(128)
-#
-#         img_size = _out_size(self, img_size, kernel_size=3, padding = 1)  #img_size = 12
-#
-#
-#         self.conv4 = nn.Conv2d(128, 128, kernel_size=3, padding = 1)  #img_size = 12
-#         self.conv4_bn = nn.BatchNorm2d(128)
-#         self.pool4 = nn.MaxPool2d(kernel_size=2, stride=2, padding = 0)  #img_size = 6
-#
-#         img_size = _out_size(self, img_size,kernel_size=3, padding = 1, pool = True) #img_size = 6
-#
-#         self.conv5 = nn.Conv2d(128, 160, kernel_size=3, padding = 1)  #img_size = 6
-#         self.conv5_bn = nn.BatchNorm2d(160)
-#
-#         img_size = _out_size(self, img_size, padding = 1, kernel_size=3)   #img_size = 6
-#
-#         self.conv6 = nn.Conv2d(160, 192, kernel_size=3)   #img_size = 4
-#         self.conv6_bn = nn.BatchNorm2d(192)
-#
-#         img_size = _out_size(self, img_size,kernel_size=3, pool = False)
-#
-#         # glimpse layer
-#         D_in = img_size * img_size * 192 # 3072
-#         self.fc1 = nn.Linear(int(D_in), h_g)
-#
-#
-#     def forward(self, phi, l_t_prev):
-#
-#         # flatten location vector
-#         l_t_prev = l_t_prev.view(l_t_prev.size(0), -1)
-#
-#         # Batch Normalise every layer ??
-#         phi = F.relu(self.conv1_bn(self.conv1(phi)))
-#         phi = F.relu(self.pool2(self.conv2_bn(self.conv2(phi))))
-#
-#         phi = F.relu(self.conv3_bn(self.conv3(phi)))
-#         phi = F.relu(self.pool4(self.conv4_bn(self.conv4(phi))))
-#
-#         phi = F.relu(self.conv5_bn(self.conv5(phi)))
-#         phi = F.relu((self.conv6_bn(self.conv6(phi))))
-#
-#         # Flatten up the image
-#         phi = phi.view(phi.shape[0], -1)
-#
-#         # feed phi and l to respective fc layers
-#         phi_out = F.relu(self.fc1(phi))
-#
-#         return phi_out #(B,512)
-#
-#
-
 class classification_network(nn.Module):
 
     def __init__(self, input_size = 512, hidden_size = 1024, num_classes = 10):
@@ -402,78 +208,19 @@ class location_network(nn.Module):
     def forward(self, ht_2):
         t = F.relu(self.fc1(ht_2))
         t = F.tanh(self.fc2(t)) # bound between [-1, 1]
-        t_p = t.clone()
-        t_p[:,0] = torch.clamp(t[:,0],min=0.0, max=1.0) # QUESTION: The clamp operation is not diffrentiable does it backpropogates the error properly??
-        t_p[:,4] = torch.clamp(t[:,4],min=0.0, max=1.0)
-        # t_p[:,1] = torch.clamp(t[:,0],min=0.0, max=0.0)
-        # t_p[:,3] = torch.clamp(t[:,0],min=0.0, max=0.0)
-        # torch.clamp(t_p[:,0],min=0.0, max=1.0)
-        # torch.clamp(t_p[:,4],min=0.0, max=1.0)
-        # prevent gradient flow
-        # l_t = l_t.detach()
-
+        # t_p = t.clone()
+        # t_p[:,0] = torch.clamp(t[:,0],min=0.0, max=1.0) # QUESTION: The clamp operation is not diffrentiable does it backpropogates the error properly??
+        # t_p[:,4] = torch.clamp(t[:,4],min=0.0, max=1.0)
         return t
 
 
 
 
 
-# class location_network(nn.Module):
-#
-#     def __init__(self, input_size = 1024, hidden_size = 1024, out_size = 6):
-#         super(location_network, self).__init__()
-#         self.std = 0.17
-#         # self.fc1 = nn.Linear(input_size, 1024)
-#         # self.fc2 = nn.Linear(1024,2)
-#         self.fc2 = nn.Linear(input_size,out_size)
-#
-#
-#     def forward(self, ht_2):
-#         mu = F.tanh(self.fc2(ht_2)) # bound between [-1, 1]
-#
-#         # sample from gaussian parametrized by this mean
-#         noise = torch.from_numpy(np.random.normal(
-#             scale=self.std, size=mu.shape)
-#         )
-#         noise = Variable(noise.float()).type_as(mu)
-#         l_t = mu + noise
-#
-#         # bound between [-1, 1]
-#         l_t = F.tanh(l_t)
-#
-#         # prevent gradient flow
-#         # l_t = l_t.detach()
-#
-#         return mu
-#
 
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-#TODO: resize the input image
 
 class context_network(nn.Module):
     """
